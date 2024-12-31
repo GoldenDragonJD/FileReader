@@ -1,0 +1,5 @@
+D:\Documents\C# Apps\FileReader\bin\Release\net9.0\publish\FileReader.exe
+D:\Documents\C# Apps\FileReader\bin\Release\net9.0\publish\FileReader.dll
+D:\Documents\C# Apps\FileReader\bin\Release\net9.0\publish\FileReader.deps.json
+D:\Documents\C# Apps\FileReader\bin\Release\net9.0\publish\FileReader.runtimeconfig.json
+D:\Documents\C# Apps\FileReader\bin\Release\net9.0\publish\FileReader.pdb
