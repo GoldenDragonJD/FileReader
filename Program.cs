@@ -17,7 +17,15 @@ namespace FileReader
                 order++;
                 len = len / 1024;
             }
-            return string.Format("{0:0.##} {1}", len, sizes[order]);
+
+            string formattedSize = string.Format("{0:0.##} {1}", len, sizes[order]);
+
+            while (formattedSize.Length < 9)
+            {
+                formattedSize = " " + formattedSize;
+            }
+
+            return formattedSize;
         }
 
         static string FormatString(string stringToFormat)
@@ -54,38 +62,85 @@ namespace FileReader
             // get user input
             while (true)
             {
+
+
+                Console.Write("\nEnter a file path: ", Console.ForegroundColor = ConsoleColor.White);
+                string? filePath = Console.ReadLine();
+
+                if (filePath == "clear;")
+                {
+                    Console.Clear();
+                    continue;
+                }
+
+                if (filePath == null) continue;
+
+                // if (!File.Exists(filePath)) continue;
+
                 try
                 {
-                    Console.Write("\nEnter a file path: ");
-                    string? filePath = Console.ReadLine();
-
-                    if (filePath == null) continue;
-
-                    // if (!File.Exists(filePath)) continue;
+                    long totalFileSize = 0;
 
                     DirectoryInfo directoryInfo = new DirectoryInfo(filePath);
                     FileInfo[] files = directoryInfo.GetFiles();
                     DirectoryInfo[] directories = directoryInfo.GetDirectories();
 
-                    Console.WriteLine($"Listing Files in {directoryInfo.Name}:");
+                    Console.WriteLine($"Listing Files in {directoryInfo.Name}:", Console.ForegroundColor = ConsoleColor.White);
                     foreach (FileInfo file in files)
                     {
-                        Console.WriteLine("---");
-                        Console.WriteLine($"{FormatString(file.Name)} {FormatBytes((int)file.Length)}");
-                        Console.WriteLine("---");
+                        Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
+                        Console.Write("| ");
+
+                        totalFileSize += file.Length;
+
+                        try
+                        {
+                            Console.Write($"{FormatString(file.Name)}", Console.ForegroundColor = ConsoleColor.Yellow);
+                            Console.Write($"{FormatBytes(file.Length)}", Console.ForegroundColor = ConsoleColor.Cyan);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.Write($"{ex.Message}", Console.ForegroundColor = ConsoleColor.Red);
+                            Console.Write($"{FormatBytes(0)}", Console.ForegroundColor = ConsoleColor.Cyan);
+                        }
+                        Console.Write(" |\n", Console.ForegroundColor = ConsoleColor.White);
                     }
+                    Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
 
                     Console.WriteLine($"\nListing Directories in {directoryInfo.Name}:");
                     foreach (DirectoryInfo directory in directories)
                     {
-                        Console.WriteLine("---");
-                        Console.WriteLine($"{FormatString(directory.Name)} {FormatBytes(GetTotalFolderSize(directory))}");
-                        Console.WriteLine("---");
+                        Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
+                        Console.Write("| ");
+                        try
+                        {
+                            long folderSize = GetTotalFolderSize(directory);
+
+                            totalFileSize += folderSize;
+
+                            string formattedBytes = FormatBytes(folderSize);
+                            Console.Write($"{FormatString(directory.Name)}", Console.ForegroundColor = ConsoleColor.Yellow);
+                            Console.Write(formattedBytes, Console.ForegroundColor = ConsoleColor.Cyan);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.Write($"{FormatString($"Access Error: {directory.Name}")}", Console.ForegroundColor = ConsoleColor.Red);
+                            Console.Write($"{FormatBytes(0)}", Console.ForegroundColor = ConsoleColor.Cyan);
+                        }
+                        Console.Write(" |\n", Console.ForegroundColor = ConsoleColor.White);
                     }
+                    Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
+                    Console.WriteLine("");
+                    Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
+                    Console.Write("| ", Console.ForegroundColor = ConsoleColor.White);
+                    Console.Write($"{FormatString("Ruff Total Size")}", Console.ForegroundColor = ConsoleColor.Green);
+                    Console.Write($"{FormatBytes(totalFileSize)}", Console.ForegroundColor = ConsoleColor.Magenta);
+                    Console.Write(" |\n", Console.ForegroundColor = ConsoleColor.White);
+                    Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    Console.WriteLine(e.Message);
+                    Console.WriteLine(ex.Message, Console.ForegroundColor = ConsoleColor.Red);
                 }
             }
         }
