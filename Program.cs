@@ -40,21 +40,34 @@ namespace FileReader
 
         static long GetTotalFolderSize(DirectoryInfo directoryInfo)
         {
-            long totalSize = 0;
-
-            // Add the size of all files in the current directory
-            foreach (FileInfo file in directoryInfo.GetFiles())
+            try
             {
-                totalSize += file.Length;
-            }
+                long totalSize = 0;
 
-            // Recursively add the size of files in subdirectories
-            foreach (DirectoryInfo subDirectory in directoryInfo.GetDirectories())
+                // Add the size of all files in the current directory
+                foreach (FileInfo file in directoryInfo.GetFiles())
+                {
+                    totalSize += file.Length;
+                }
+
+                // Recursively add the size of files in subdirectories
+                foreach (DirectoryInfo subDirectory in directoryInfo.GetDirectories())
+                {
+                    if (isJunction(subDirectory)) continue;
+                    totalSize += GetTotalFolderSize(subDirectory);
+                }
+
+                return totalSize;
+            }
+            catch (Exception ex)
             {
-                totalSize += GetTotalFolderSize(subDirectory);
+                return 0;
             }
+        }
 
-            return totalSize;
+        static bool isJunction(DirectoryInfo dir)
+        {
+            return dir.Attributes.HasFlag(FileAttributes.ReparsePoint);
         }
 
         static void Main(string[] args)
@@ -62,8 +75,6 @@ namespace FileReader
             // get user input
             while (true)
             {
-
-
                 Console.Write("\nEnter a file path: ", Console.ForegroundColor = ConsoleColor.White);
                 string? filePath = Console.ReadLine();
 
@@ -110,6 +121,8 @@ namespace FileReader
                     Console.WriteLine($"\nListing Directories in {directoryInfo.Name}:");
                     foreach (DirectoryInfo directory in directories)
                     {
+                        if (isJunction(directory)) continue;
+
                         Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
                         Console.Write("| ");
                         try
