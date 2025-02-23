@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Linq;
 using System;
+using System.Collections.Concurrent;
 
 namespace FileReader
 {
@@ -38,41 +39,8 @@ namespace FileReader
             return stringToFormat;
         }
 
-        static long GetTotalFolderSize(DirectoryInfo directoryInfo)
-        {
-            try
-            {
-                long totalSize = 0;
-
-                // Add the size of all files in the current directory
-                foreach (FileInfo file in directoryInfo.GetFiles())
-                {
-                    totalSize += file.Length;
-                }
-
-                // Recursively add the size of files in subdirectories
-                foreach (DirectoryInfo subDirectory in directoryInfo.GetDirectories())
-                {
-                    if (isJunction(subDirectory)) continue;
-                    totalSize += GetTotalFolderSize(subDirectory);
-                }
-
-                return totalSize;
-            }
-            catch (Exception ex)
-            {
-                return 0;
-            }
-        }
-
-        static bool isJunction(DirectoryInfo dir)
-        {
-            return dir.Attributes.HasFlag(FileAttributes.ReparsePoint);
-        }
-
         static void Main(string[] args)
         {
-            // get user input
             while (true)
             {
                 Console.Write("\nEnter a file path: ", Console.ForegroundColor = ConsoleColor.White);
@@ -86,8 +54,6 @@ namespace FileReader
 
                 if (filePath == null) continue;
 
-                // if (!File.Exists(filePath)) continue;
-
                 try
                 {
                     long totalFileSize = 0;
@@ -96,51 +62,31 @@ namespace FileReader
                     FileInfo[] files = directoryInfo.GetFiles();
                     DirectoryInfo[] directories = directoryInfo.GetDirectories();
 
+                    var fileTasks = new ConcurrentDictionary<int, string>();
+                    var dirTasks = new ConcurrentDictionary<int, string>();
+
                     Console.WriteLine($"Listing Files in {directoryInfo.Name}:", Console.ForegroundColor = ConsoleColor.White);
-                    foreach (FileInfo file in files)
+                    Parallel.ForEach(files, (file, state, index) =>
                     {
-                        Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
-                        Console.Write("| ");
+                        fileTasks[(int)index] = GenerateFileOutput(file, ref totalFileSize);
+                    });
 
-                        totalFileSize += file.Length;
-
-                        try
-                        {
-                            Console.Write($"{FormatString(file.Name)}", Console.ForegroundColor = ConsoleColor.Yellow);
-                            Console.Write($"{FormatBytes(file.Length)}", Console.ForegroundColor = ConsoleColor.Cyan);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.Write($"{ex.Message}", Console.ForegroundColor = ConsoleColor.Red);
-                            Console.Write($"{FormatBytes(0)}", Console.ForegroundColor = ConsoleColor.Cyan);
-                        }
-                        Console.Write(" |\n", Console.ForegroundColor = ConsoleColor.White);
+                    foreach (var item in fileTasks.OrderBy(kvp => kvp.Key))
+                    {
+                        Console.WriteLine(item.Value, Console.ForegroundColor = ConsoleColor.White);
                     }
                     Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
 
                     Console.WriteLine($"\nListing Directories in {directoryInfo.Name}:");
-                    foreach (DirectoryInfo directory in directories)
+                    Parallel.ForEach(directories, (directory, state, index) =>
                     {
-                        if (isJunction(directory)) continue;
+                        if (isJunction(directory)) return;
+                        dirTasks[(int)index] = GenerateDirectoryOutput(directory, ref totalFileSize);
+                    });
 
-                        Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
-                        Console.Write("| ");
-                        try
-                        {
-                            long folderSize = GetTotalFolderSize(directory);
-
-                            totalFileSize += folderSize;
-
-                            string formattedBytes = FormatBytes(folderSize);
-                            Console.Write($"{FormatString(directory.Name)}", Console.ForegroundColor = ConsoleColor.Yellow);
-                            Console.Write(formattedBytes, Console.ForegroundColor = ConsoleColor.Cyan);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.Write($"{FormatString($"Access Error: {directory.Name}")}", Console.ForegroundColor = ConsoleColor.Red);
-                            Console.Write($"{FormatBytes(0)}", Console.ForegroundColor = ConsoleColor.Cyan);
-                        }
-                        Console.Write(" |\n", Console.ForegroundColor = ConsoleColor.White);
+                    foreach (var item in dirTasks.OrderBy(kvp => kvp.Key))
+                    {
+                        Console.WriteLine(item.Value, Console.ForegroundColor = ConsoleColor.White);
                     }
                     Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
                     Console.WriteLine("");
@@ -156,6 +102,63 @@ namespace FileReader
                     Console.WriteLine(ex.Message, Console.ForegroundColor = ConsoleColor.Red);
                 }
             }
+        }
+
+        static string GenerateFileOutput(FileInfo file, ref long totalFileSize)
+        {
+            totalFileSize += file.Length;
+            try
+            {
+                return string.Format("| {0}{1} |", FormatString(file.Name), FormatBytes(file.Length));
+            }
+            catch (Exception ex)
+            {
+                return string.Format("| {0}{1} |", FormatString(ex.Message), FormatBytes(0));
+            }
+        }
+
+        static string GenerateDirectoryOutput(DirectoryInfo directory, ref long totalFileSize)
+        {
+            try
+            {
+                long folderSize = GetTotalFolderSize(directory);
+                totalFileSize += folderSize;
+                return string.Format("| {0}{1} |", FormatString(directory.Name), FormatBytes(folderSize));
+            }
+            catch (Exception ex)
+            {
+                return string.Format("| {0}{1} |", FormatString($"Access Error: {directory.Name}"), FormatBytes(0));
+            }
+        }
+
+        static long GetTotalFolderSize(DirectoryInfo directoryInfo)
+        {
+            try
+            {
+                long totalSize = 0;
+
+                foreach (FileInfo file in directoryInfo.GetFiles())
+                {
+                    totalSize += file.Length;
+                }
+
+                Parallel.ForEach(directoryInfo.GetDirectories(), (subDirectory) =>
+                {
+                    if (isJunction(subDirectory)) return;
+                    Interlocked.Add(ref totalSize, GetTotalFolderSize(subDirectory));
+                });
+
+                return totalSize;
+            }
+            catch (Exception ex)
+            {
+                return 0;
+            }
+        }
+
+        static bool isJunction(DirectoryInfo dir)
+        {
+            return dir.Attributes.HasFlag(FileAttributes.ReparsePoint);
         }
     }
 }
