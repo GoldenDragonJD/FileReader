@@ -86,6 +86,13 @@ namespace FileReader
 
                 if (filePath == null) continue;
 
+                bool orderBySize = false;
+                if (filePath.StartsWith("<o>"))
+                {
+                    orderBySize = true;
+                    filePath = filePath.Substring(3); // Remove the <o> part
+                }
+
                 // if (!File.Exists(filePath)) continue;
 
                 try
@@ -93,21 +100,40 @@ namespace FileReader
                     long totalFileSize = 0;
 
                     DirectoryInfo directoryInfo = new DirectoryInfo(filePath);
-                    FileInfo[] files = directoryInfo.GetFiles();
-                    DirectoryInfo[] directories = directoryInfo.GetDirectories();
+                    var files = directoryInfo.GetFiles();
+                    var directories = directoryInfo.GetDirectories();
+
+                    // Calculate folder sizes if <o> is provided
+                    var folderSizes = directories.Select(d => new
+                    {
+                        Directory = d,
+                        Size = orderBySize ? GetTotalFolderSize(d) : GetTotalFolderSize(d)
+                    }).ToList();
+
+                    var fileSizes = files.Select(f => new
+                    {
+                        File = f,
+                        Size = f.Length
+                    }).ToList();
+
+                    if (orderBySize)
+                    {
+                        folderSizes = folderSizes.OrderByDescending(d => d.Size).ToList();
+                        fileSizes = fileSizes.OrderByDescending(f => f.Size).ToList();
+                    }
 
                     Console.WriteLine($"Listing Files in {directoryInfo.Name}:", Console.ForegroundColor = ConsoleColor.White);
-                    foreach (FileInfo file in files)
+                    foreach (var file in fileSizes)
                     {
                         Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
                         Console.Write("| ");
 
-                        totalFileSize += file.Length;
+                        totalFileSize += file.Size;
 
                         try
                         {
-                            Console.Write($"{FormatString(file.Name)}", Console.ForegroundColor = ConsoleColor.Yellow);
-                            Console.Write($"{FormatBytes(file.Length)}", Console.ForegroundColor = ConsoleColor.Cyan);
+                            Console.Write($"{FormatString(file.File.Name)}", Console.ForegroundColor = ConsoleColor.Yellow);
+                            Console.Write($"{FormatBytes(file.Size)}", Console.ForegroundColor = ConsoleColor.Cyan);
                         }
                         catch (Exception ex)
                         {
@@ -119,25 +145,23 @@ namespace FileReader
                     Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
 
                     Console.WriteLine($"\nListing Directories in {directoryInfo.Name}:");
-                    foreach (DirectoryInfo directory in directories)
+                    foreach (var directory in folderSizes)
                     {
-                        if (isJunction(directory)) continue;
+                        if (isJunction(directory.Directory)) continue;
 
                         Console.WriteLine("-----------------------------------------------------------------------------------------------------------------", Console.ForegroundColor = ConsoleColor.White);
                         Console.Write("| ");
                         try
                         {
-                            long folderSize = GetTotalFolderSize(directory);
+                            totalFileSize += directory.Size;
 
-                            totalFileSize += folderSize;
-
-                            string formattedBytes = FormatBytes(folderSize);
-                            Console.Write($"{FormatString(directory.Name)}", Console.ForegroundColor = ConsoleColor.Yellow);
+                            string formattedBytes = FormatBytes(directory.Size);
+                            Console.Write($"{FormatString(directory.Directory.Name)}", Console.ForegroundColor = ConsoleColor.Yellow);
                             Console.Write(formattedBytes, Console.ForegroundColor = ConsoleColor.Cyan);
                         }
                         catch (Exception ex)
                         {
-                            Console.Write($"{FormatString($"Access Error: {directory.Name}")}", Console.ForegroundColor = ConsoleColor.Red);
+                            Console.Write($"{FormatString($"Access Error: {directory.Directory.Name}")}", Console.ForegroundColor = ConsoleColor.Red);
                             Console.Write($"{FormatBytes(0)}", Console.ForegroundColor = ConsoleColor.Cyan);
                         }
                         Console.Write(" |\n", Console.ForegroundColor = ConsoleColor.White);
